@@ -11,6 +11,9 @@ from models.cfrnn import CFRNN, AdaptiveCFRNN
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from models.rnn import RNN
+
+from models.chronos import ChronosWrapper
+
 from utils.data_processing_synthetic import (
     DEFAULT_PARAMETERS,
     EXPERIMENT_MODES,
@@ -20,6 +23,7 @@ from utils.data_processing_synthetic import (
 from utils.performance import evaluate_cfrnn_performance, evaluate_performance
 
 BASELINES = {"CFRNN": CFRNN, "AdaptiveCFRNN": AdaptiveCFRNN, "BJRNN": None, "DPRNN": DPRNN, "QRNN": QRNN}
+BASELINES["CHRONOS"] = ChronosWrapper
 
 CONFORMAL_BASELINES = ["CFRNN", "AdaptiveCFRNN"]
 
@@ -87,6 +91,7 @@ def run_synthetic_experiments(
     save_model=False,
     save_results=True,
     rnn_mode=None,
+    chronos_kwargs=None,
     seed=0,
 ):
     """
@@ -106,6 +111,7 @@ def run_synthetic_experiments(
         save_model: whether to save the model in the `./saved_models/` directory
         save_results: whether to save the results in `./saved_results/`
         rnn_mode: (in CFRNN) the type of RNN of the underlying forecaster (RNN/LSTM/GRU)
+        chronos_kwargs: (in ChronosWrapper) additional keyword arguments for the Chronos pipeline
         seed: random seed
 
     Returns:
@@ -190,6 +196,7 @@ def run_synthetic_experiments(
                 RNN_model.fit(train_dataset[0], train_dataset[1])
                 model = RNN_uncertainty_wrapper(RNN_model, rnn_mode="RNN")
             else:
+                if chronos_kwargs is not None: params.update(chronos_kwargs)
                 model = BASELINES[baseline](**params)
                 model.fit(train_dataset[0], train_dataset[1])
 
