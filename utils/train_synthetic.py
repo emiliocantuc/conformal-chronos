@@ -12,7 +12,7 @@ from models.dprnn import DPRNN
 from models.qrnn import QRNN
 from models.rnn import RNN
 
-from models.chronos import ChronosWrapper
+from models.chronos import HeuristicChronosWrapper, CFChronos
 
 from utils.data_processing_synthetic import (
     DEFAULT_PARAMETERS,
@@ -23,9 +23,13 @@ from utils.data_processing_synthetic import (
 from utils.performance import evaluate_cfrnn_performance, evaluate_performance
 
 BASELINES = {"CFRNN": CFRNN, "AdaptiveCFRNN": AdaptiveCFRNN, "BJRNN": None, "DPRNN": DPRNN, "QRNN": QRNN}
-BASELINES["CHRONOS"] = ChronosWrapper
+BASELINES.update({
+    "CHRONOS_HEURISTIC": HeuristicChronosWrapper,
+    "CHRONOS_CONFORMAL": CFChronos,
+    "CHRONOS_CONFORMAL_ALL_DATA": CFChronos # use what others see as (train + calibration) data as calibration set
+})
 
-CONFORMAL_BASELINES = ["CFRNN", "AdaptiveCFRNN"]
+CONFORMAL_BASELINES = ["CFRNN", "AdaptiveCFRNN", "CHRONOS_CONFORMAL", "CHRONOS_CONFORMAL_ALL_DATA"]
 
 DEFAULT_SYNTHETIC_TRAINING_PARAMETERS = {
     "input_size": 1,  # RNN parameters
@@ -150,6 +154,9 @@ def run_synthetic_experiments(
         if horizon is not None:
             params["horizon"] = horizon
 
+        if chronos_kwargs is not None:
+            params.update(chronos_kwargs)
+
         if not retrain_auxiliary:
             auxiliary_forecaster_path = get_model_path(
                 experiment, params["rnn_mode"], EXPERIMENT_MODES[experiment][i], seed, dynamic_sequence_lengths, horizon
@@ -163,8 +170,12 @@ def run_synthetic_experiments(
             params["epochs"] = 1000
 
             train_dataset, calibration_dataset, test_dataset = get_synthetic_dataset(
-                raw_sequence_dataset, conformal=True, seed=seed
+                raw_sequence_dataset, conformal = True, seed=seed,
+                # 0.5 is the default, 95% is not all of the data but we avoid rewrite
+                # guarantees train has at least 1 sample so code doesn't break
+                p_calibration = 0.95 if 'ALL_DATA' in baseline else 0.5
             )
+
             model = BASELINES[baseline](
                 embedding_size=params["embedding_size"],
                 horizon=params["horizon"],
@@ -172,6 +183,7 @@ def run_synthetic_experiments(
                 rnn_mode=params["rnn_mode"],
                 auxiliary_forecaster_path=auxiliary_forecaster_path,
                 beta=params["beta"],
+                **chronos_kwargs,
             )
             model.fit(
                 train_dataset,
@@ -196,7 +208,6 @@ def run_synthetic_experiments(
                 RNN_model.fit(train_dataset[0], train_dataset[1])
                 model = RNN_uncertainty_wrapper(RNN_model, rnn_mode="RNN")
             else:
-                if chronos_kwargs is not None: params.update(chronos_kwargs)
                 model = BASELINES[baseline](**params)
                 model.fit(train_dataset[0], train_dataset[1])
 

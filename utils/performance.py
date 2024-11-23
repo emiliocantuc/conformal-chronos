@@ -13,7 +13,7 @@ from models.bjrnn import RNN_uncertainty_wrapper
 from models.dprnn import DPRNN
 from models.qrnn import QRNN
 
-from models.chronos import ChronosWrapper
+from models.chronos import HeuristicChronosWrapper
 
 def evaluate_cfrnn_performance(model, test_dataset, correct_conformal=True):
     independent_coverages, joint_coverages, intervals = model.evaluate_coverage(
@@ -61,7 +61,7 @@ def evaluate_performance(model, X_test, Y_test, coverage=0.9):
         y_u_approx = [x.reshape(-1, 1) for x in y_u_approx]
         y_l_approx = [x.reshape(-1, 1) for x in y_l_approx]
     
-    elif type(model) is ChronosWrapper:
+    elif type(model) is HeuristicChronosWrapper:
         y_pred, y_l_approx, y_u_approx = model.predict(X_test, alpha = 1 - coverage)
 
     results = {}

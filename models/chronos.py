@@ -3,6 +3,8 @@ import scipy.stats as stats
 import torch
 from einops import rearrange, reduce
 
+from models.cfrnn import CFRNN
+
 # === HEURISTIC BASELINE INTERVALS ===
 # In all cases the shapes are
 # forecast  :(batch, n_sampes, horizon)
@@ -29,9 +31,8 @@ def bonferroni(forecast, alpha, other_f, **other_f_kwargs):
     return other_f
 
 
-# For "classical" (non-conformal) interval methods to be used as baselines
-# maybe subclass for the conformal wrapper?
-class ChronosWrapper:
+class HeuristicChronosWrapper:
+    # For "classical"/heuristic (non-conformal) interval methods to be used as baselines
 
     def __init__(self, horizon, coverage, pipeline, pred_kwargs, int_func, **kwargs):
 
@@ -65,3 +66,48 @@ class ChronosWrapper:
         ints = self.int_func(forecast, alpha = alpha)
         y_l_approx, y_u_approx = rearrange(ints, 'b i h -> i b h')
         return y_pred, y_l_approx, y_u_approx
+    
+
+class _ChronosPipelineWrapper:
+    # Wraps a Chronos pipeline to be used as an "auxiliary forecaster" from CFRNN
+    # Required to match the CFRNN interface
+
+    def __init__(self, pipeline, horizon, pred_kwargs):
+        self.pipeline = pipeline
+        self.horizon = horizon
+        self.pred_kwargs = pred_kwargs
+    
+    @torch.no_grad()
+    def __call__(self, x, _ = None):
+        # x is "shaped" [n_samples, seq_len, n_features]
+        # but its a list of length n_samples, each element is a tensor of shape [seq_len, n_features]
+        # Note: n_features is always 1 (as far as I can tell)
+        assert x[0].shape[1] == 1, "n_features must be 1?"
+
+        x = rearrange(x, 'n_samples seq_len 1 -> n_samples seq_len')
+
+        # Expects output [n_samples, ], state
+        forecast = self.pipeline.predict(
+            context = x,
+            prediction_length = self.horizon,
+            **self.pred_kwargs
+        )
+        y_pred = reduce(forecast, 'n_samples num_samples horizon -> n_samples horizon', 'mean')
+
+        # Need to add trailing dimention to match expected shape
+        y_pred = rearrange(y_pred, 'n_samples horizon -> n_samples horizon 1')
+        return y_pred, None # expects state, but we don't care
+
+    def eval(self): pass
+
+    # Chronos should not be fit -- although we could try fine-tuning here
+    def fit(self, *args, **kwargs): raise NotImplementedError
+
+    
+class CFChronos(CFRNN):
+    # CFRNN subclass that uses Chronos as the auxiliary forecaster
+
+    def __init__(self, pipeline, pred_kwargs, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.auxiliary_forecaster = _ChronosPipelineWrapper(pipeline, self.horizon, pred_kwargs)
+        self.requires_auxiliary_fit = False
