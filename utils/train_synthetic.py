@@ -96,6 +96,7 @@ def run_synthetic_experiments(
     save_results=True,
     rnn_mode=None,
     chronos_kwargs=None,
+    extra_path_info="",
     seed=0,
 ):
     """
@@ -115,6 +116,7 @@ def run_synthetic_experiments(
         save_model: whether to save the model in the `./saved_models/` directory
         save_results: whether to save the results in `./saved_results/`
         rnn_mode: (in CFRNN) the type of RNN of the underlying forecaster (RNN/LSTM/GRU)
+        extra_path_info: additional information to be added to the model path
         chronos_kwargs: (in ChronosWrapper) additional keyword arguments for the Chronos pipeline
         seed: random seed
 
@@ -233,13 +235,15 @@ def run_synthetic_experiments(
         gc.collect()
 
     if save_results:
+        if extra_path_info: baseline += '_' + extra_path_info
         with open(get_results_path(experiment, baseline, seed, dynamic_sequence_lengths, horizon), "wb") as f:
             pickle.dump(baseline_results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     return baseline_results
 
 
-def load_synthetic_results(experiment, baseline, seed=0, horizon=None, dynamic_sequence_lengths=False):
+def load_synthetic_results(experiment, baseline, seed=0, horizon=None, dynamic_sequence_lengths=False, extra_path_info=""):
+    if extra_path_info: baseline += '_' + extra_path_info
     path = get_results_path(experiment, baseline, seed, dynamic_sequence_lengths, horizon)
     with open(path, "rb") as f:
         baseline_results = pickle.load(f)
