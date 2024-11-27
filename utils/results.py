@@ -12,14 +12,14 @@ from utils.train_medical import get_uncorrected_medical_results, load_medical_re
 from utils.train_synthetic import load_synthetic_results
 
 
-def get_joint_coverages(baseline, experiment, seeds=None):
+def get_joint_coverages(baseline, experiment, seeds=None, extra_path_info=""):
     """ Returns joint horizon coverages for each dataset setting. """
     if seeds is None:
         seeds = list(range(5))
     coverages = []
     for seed in seeds:
         dataset_coverages = []
-        results = load_synthetic_results(experiment=experiment, baseline=baseline, seed=seed)
+        results = load_synthetic_results(experiment=experiment, baseline=baseline, seed=seed, extra_path_info=extra_path_info)
         for result in results:
             dataset_coverages.append(result["Mean joint coverage"] * 100)
         coverages.append(dataset_coverages)
@@ -41,7 +41,7 @@ def get_joint_medical_coverages(baseline, dataset, seeds=None, correct_conformal
     return coverages.mean(axis=0), coverages.std(axis=0)
 
 
-def get_interval_widths(baseline, experiment, seeds=None):
+def get_interval_widths(baseline, experiment, seeds=None, extra_path_info=""):
     """ Returns interval widths (mean±std over seeds) across the horizon for
     every dataset setting. """
 
@@ -50,7 +50,7 @@ def get_interval_widths(baseline, experiment, seeds=None):
         seeds = list(range(5))
     widths = []
     for seed in seeds:
-        results = load_synthetic_results(experiment=experiment, baseline=baseline, seed=seed)
+        results = load_synthetic_results(experiment=experiment, baseline=baseline, seed=seed, extra_path_info=extra_path_info)
         dataset_widths = []  # settings x horizon
         for result in results:
             # [1 x horizon] for a single dataset setting

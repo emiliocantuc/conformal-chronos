@@ -227,7 +227,7 @@ def run_synthetic_experiments(
                     seed,
                     dynamic_sequence_lengths,
                     horizon,
-                    baseline,
+                    baseline + '_' + extra_path_info if extra_path_info else baseline,
                 ),
             )
 
@@ -235,8 +235,7 @@ def run_synthetic_experiments(
         gc.collect()
 
     if save_results:
-        if extra_path_info: baseline += '_' + extra_path_info
-        with open(get_results_path(experiment, baseline, seed, dynamic_sequence_lengths, horizon), "wb") as f:
+        with open(get_results_path(experiment, baseline + '_' + extra_path_info if extra_path_info else baseline, seed, dynamic_sequence_lengths, horizon), "wb") as f:
             pickle.dump(baseline_results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     return baseline_results

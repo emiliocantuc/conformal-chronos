@@ -148,6 +148,11 @@ class _ChronosPipelineWrapper:
 
     def eval(self): pass
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state = {k:v for k,v in state.items() if k in ['horizon', 'calibration_scores']}
+        return state
+
 
 class CFChronos(CFRNN):
     # CFRNN subclass that uses Chronos as the auxiliary forecaster
