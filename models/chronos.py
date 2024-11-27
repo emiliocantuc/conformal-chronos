@@ -71,11 +71,13 @@ class HeuristicChronosWrapper:
 class _ChronosPipelineWrapper:
     # Wraps a Chronos pipeline to be used as an "auxiliary forecaster" from CFRNN
     # Required to match the CFRNN interface
+    # We've also added RAG as in: https://arxiv.org/abs/2411.08249
 
-    def __init__(self, pipeline, horizon, pred_kwargs):
+    def __init__(self, pipeline, horizon, pred_kwargs): # False
         self.pipeline = pipeline
         self.horizon = horizon
-        self.pred_kwargs = pred_kwargs
+        self.pred_kwargs = {k:v for k,v in pred_kwargs.items() if k != 'rag'}
+        self.rag = pred_kwargs.get('rag', False)
     
     @torch.no_grad()
     def __call__(self, x, _ = None):
@@ -85,6 +87,7 @@ class _ChronosPipelineWrapper:
         assert x[0].shape[1] == 1, "n_features must be 1?"
 
         x = rearrange(x, 'n_samples seq_len 1 -> n_samples seq_len')
+        if self.rag: x = self.augment_context(x)
 
         # Expects output [n_samples, ], state
         forecast = self.pipeline.predict(
@@ -97,17 +100,59 @@ class _ChronosPipelineWrapper:
         # Need to add trailing dimention to match expected shape
         y_pred = rearrange(y_pred, 'n_samples horizon -> n_samples horizon 1')
         return y_pred, None # expects state, but we don't care
+    
+    def augment_context(self, x):
+        # Retrieves similar sequences from the training set and appends them to the context
+
+        # Embed the series in the context
+        query_embeddings, _ = self.pipeline.embed(x)
+        aug_x = []
+
+        # For every series
+        for series, emb in zip(x, query_embeddings):
+
+            # Find the closest embeddings in the training set
+            diffs = emb - self.embeddings # [n_train, seq_len, emb_dim]
+            dists = torch.norm(diffs, dim = -1, p = 2).sum(-1)
+            retrieved_ix = dists.argmin()
+            retrieved_seq = self.sequences[retrieved_ix]
+
+            # Center and scale retrieved to query
+            retrieved_seq = (retrieved_seq - retrieved_seq.mean()) / retrieved_seq.std()
+            retrieved_seq = retrieved_seq * series.std() + series.mean()
+
+            # Make sure the retrieved ends where the query starts (and del duplicate element)
+            retrieved_seq += series[0] - retrieved_seq[-1]
+            retrieved_seq = retrieved_seq[:-1]
+
+            aug_x.append(torch.concat([retrieved_seq, series], dim = 0))
+
+        return aug_x
+
+    # Chronos is not "fit" but we do "RAG" here (note: could also fine-tune, etc.)
+    def fit(self, train_dataset, batch_size, *args, **kwargs):
+
+        if not self.rag: return
+
+        self.embeddings, self.sequences = [], []
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size = batch_size, shuffle = False)
+
+        for x, y, lengths in train_loader:
+            x = rearrange(x, 'n_samples seq_len 1 -> n_samples seq_len')
+            embs, _ = self.pipeline.embed(x)
+            self.embeddings.append(embs)
+            self.sequences.append(torch.concat([x, y.squeeze()], dim = 1))
+        
+        self.embeddings = torch.cat(self.embeddings, dim = 0)
+        self.sequences  = torch.cat(self.sequences, dim = 0)
 
     def eval(self): pass
 
-    # Chronos should not be fit -- although we could try fine-tuning here
-    def fit(self, *args, **kwargs): raise NotImplementedError
 
-    
 class CFChronos(CFRNN):
     # CFRNN subclass that uses Chronos as the auxiliary forecaster
 
     def __init__(self, pipeline, pred_kwargs, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.auxiliary_forecaster = _ChronosPipelineWrapper(pipeline, self.horizon, pred_kwargs)
-        self.requires_auxiliary_fit = False
+        self.requires_auxiliary_fit = pred_kwargs.get('rag', False)
