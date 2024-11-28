@@ -14,9 +14,17 @@ from utils.data_processing_eeg import get_eeg_splits
 from utils.data_processing_mimic import get_mimic_splits
 from utils.performance import evaluate_cfrnn_performance, evaluate_performance
 
-BASELINES = {"CFRNN": CFRNN, "AdaptiveCFRNN": AdaptiveCFRNN, "DPRNN": DPRNN, "QRNN": QRNN}
+from models.chronos import HeuristicChronosWrapper, CFChronos
 
-CONFORMAL_BASELINES = ["CFRNN", "AdaptiveCFRNN"]
+BASELINES = {"CFRNN": CFRNN, "AdaptiveCFRNN": AdaptiveCFRNN, "DPRNN": DPRNN, "QRNN": QRNN}
+BASELINES.update({
+    "CHRONOS_HEURISTIC": HeuristicChronosWrapper,
+    "CHRONOS_CONFORMAL": CFChronos,
+    "CHRONOS_CONFORMAL_ALL_DATA": CFChronos # use what others see as (train + calibration) data as calibration set
+})
+
+
+CONFORMAL_BASELINES = ["CFRNN", "AdaptiveCFRNN", "CHRONOS_CONFORMAL", "CHRONOS_CONFORMAL_ALL_DATA"]
 
 DEFAULT_MEDICAL_PARAMETERS = {
     "batch_size": 150,
@@ -34,8 +42,14 @@ EPOCHS = {
     "CFRNN": {"mimic": 1000, "eeg": 100, "covid": 1000},
     "AdaptiveCFRNN": {"mimic": 1000, "eeg": 100, "covid": 1000},
     "DPRNN": {"mimic": 10, "eeg": 10, "covid": 10},
-    "QRNN": {"mimic": 10, "eeg": 10, "covid": 10},
+    "QRNN": {"mimic": 10, "eeg": 10, "covid": 10}, 
 }
+
+EPOCHS.update({
+    "CHRONOS_HEURISTIC": {"mimic": 1, "eeg": 1, "covid": 1},
+    "CHRONOS_CONFORMAL": {"mimic": 1, "eeg": 1, "covid": 1},
+    "CHRONOS_CONFORMAL_ALL_DATA": {"mimic": 1, "eeg": 1, "covid": 1}
+})
 
 DATASET_SPLIT_FUNCTIONS = {"mimic": get_mimic_splits, "eeg": get_eeg_splits, "covid": get_covid_splits}
 
@@ -44,7 +58,7 @@ HORIZON_LENGTHS = {"mimic": 2, "eeg": 10, "covid": 50}
 TIMESERIES_LENGTHS = {"mimic": 47, "eeg": 40, "covid": 100}  # 49 - horizon
 
 
-def run_medical_experiments(dataset, baseline, params=None, save_model=False, save_results=True, seed=0):
+def run_medical_experiments(dataset, baseline, params=None, save_model=False, save_results=True, seed=0, chronos_kwargs=None, extra_path_info="",):
     assert baseline in BASELINES.keys(), "Invalid baselines"
     assert dataset in DATASET_SPLIT_FUNCTIONS.keys(), "Invalid dataset"
 
@@ -57,6 +71,7 @@ def run_medical_experiments(dataset, baseline, params=None, save_model=False, sa
     params["max_steps"] = length
     params["output_size"] = horizon
     params["epochs"] = EPOCHS[baseline][dataset]
+    if chronos_kwargs is not None: params.update(chronos_kwargs)
 
     torch.manual_seed(seed)
 
@@ -70,6 +85,7 @@ def run_medical_experiments(dataset, baseline, params=None, save_model=False, sa
             horizon=horizon,
             error_rate=1 - params["coverage"],
             mode=params["rnn_mode"],
+            **chronos_kwargs
         )
 
         model.fit(
@@ -89,9 +105,9 @@ def run_medical_experiments(dataset, baseline, params=None, save_model=False, sa
         results = evaluate_performance(model, test_dataset[0], test_dataset[1], coverage=params["coverage"])
 
     if save_model:
-        torch.save(model, "saved_models/{}-{}-{}.pt".format(dataset, baseline, seed))
+        torch.save(model, "saved_models/{}-{}-{}.pt".format(dataset, baseline + '_' + extra_path_info if extra_path_info else baseline, seed))
     if save_results:
-        with open("saved_results/{}-{}-{}.pkl".format(dataset, baseline, seed), "wb") as f:
+        with open("saved_results/{}-{}-{}.pkl".format(dataset, baseline + '_' + extra_path_info if extra_path_info else baseline, seed), "wb") as f:
             pickle.dump(results, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     return results
