@@ -27,7 +27,7 @@ def get_joint_coverages(baseline, experiment, seeds=None, extra_path_info=""):
     return coverages.mean(axis=0), coverages.std(axis=0)
 
 
-def get_joint_medical_coverages(baseline, dataset, seeds=None, correct_conformal=True):
+def get_joint_medical_coverages(baseline, dataset, seeds=None, correct_conformal=True, extra_path_info=""):
     if seeds is None:
         seeds = list(range(5))
     coverages = []
@@ -35,7 +35,7 @@ def get_joint_medical_coverages(baseline, dataset, seeds=None, correct_conformal
         if baseline == "CFRNN" and not correct_conformal:
             result = get_uncorrected_medical_results(dataset, seed)
         else:
-            result = load_medical_results(dataset=dataset, baseline=baseline, seed=seed)
+            result = load_medical_results(dataset=dataset, baseline=baseline, seed=seed, extra_path_info=extra_path_info)
         coverages.append(result["Mean joint coverage"] * 100)
     coverages = np.array(coverages)
     return coverages.mean(axis=0), coverages.std(axis=0)
@@ -63,7 +63,7 @@ def get_interval_widths(baseline, experiment, seeds=None, extra_path_info=""):
     return widths.mean(axis=(0, 2)), widths.std(axis=(0, 2))
 
 
-def get_medical_interval_widths(baseline, dataset, seeds=None, correct_conformal=True):
+def get_medical_interval_widths(baseline, dataset, seeds=None, correct_conformal=True, extra_path_info=""):
     if seeds is None:
         seeds = list(range(5))
     widths = []
@@ -71,7 +71,7 @@ def get_medical_interval_widths(baseline, dataset, seeds=None, correct_conformal
         if baseline == "CFRNN" and not correct_conformal:
             result = get_uncorrected_medical_results(dataset, seed)
         else:
-            result = load_medical_results(dataset=dataset, baseline=baseline, seed=seed)
+            result = load_medical_results(dataset=dataset, baseline=baseline, seed=seed, extra_path_info=extra_path_info)
         # [1 x horizon] for a single dataset setting
         width = result["Mean confidence interval widths"].tolist()
         widths.append(width)

@@ -125,7 +125,7 @@ def get_uncorrected_medical_results(dataset, seed):
     return results
 
 
-def load_medical_results(dataset, baseline, seed):
-    with open("saved_results/{}-{}-{}.pkl".format(dataset, baseline, seed), "rb") as f:
+def load_medical_results(dataset, baseline, seed, extra_path_info=""):
+    with open("saved_results/{}-{}-{}.pkl".format(dataset, baseline + '_' + extra_path_info if extra_path_info else baseline, seed), "rb") as f:
         results = pickle.load(f)
     return results
