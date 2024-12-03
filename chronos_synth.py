@@ -25,7 +25,7 @@ def size_effect():
 
         for experiment, seed in itertools.product(['static', 'time_dependent', 'sample_complexity', 'static_long'], range(5)):
 
-            extra_path_info = f'size={size}'
+            extra_path_info = f'size_effect_size={size}'
             print(extra_path_info, seed, experiment)
             
             if experiment == 'static_long':
@@ -67,9 +67,6 @@ if __name__ == '__main__':
 
     experiments = {f.__name__:f for f in [size_effect]}
     assert args.experiment in experiments
-
-    # Check result dir exists and is empty
-    assert os.path.exists('saved_results') and len(os.listdir('saved_results')) == 0
 
     print(f'Running {args.experiment} {experiments[args.experiment]}')
     experiments[args.experiment]()
