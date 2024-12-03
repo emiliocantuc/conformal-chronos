@@ -5,7 +5,7 @@ from utils.train_synthetic import run_synthetic_experiments
 # Our imports
 import torch
 import chronos
-import itertools, argparse
+import itertools, argparse, os
 
 device = torch.device(
     'cuda' if torch.cuda.is_available() else 
@@ -67,6 +67,9 @@ if __name__ == '__main__':
 
     experiments = {f.__name__:f for f in [size_effect]}
     assert args.experiment in experiments
+
+    # Check result dir exists and is empty
+    assert os.path.exists('saved_results') and len(os.listdir('saved_results')) == 0
 
     print(f'Running {args.experiment} {experiments[args.experiment]}')
     experiments[args.experiment]()
