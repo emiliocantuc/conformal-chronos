@@ -70,8 +70,7 @@ def explore_hyper():
     )
 
     for num_samples, temperature, rag, experiment, seed in itertools.product(
-        [1, 5, 20], [None, 0.1, 0.5], [1, 5, 10], [True, False],
-        ['static', 'time_dependent'], range(5)):
+        [1, 5, 20], [None, 0.1, 0.5], [True, False], ['static', 'time_dependent'], range(5)):
 
         extra_path_info = f'explore_hyper_num-samples={num_samples}_temperature={temperature}_rag={rag}'
         print(extra_path_info, seed, experiment)
