@@ -69,11 +69,11 @@ def explore_hyper():
         torch_dtype = torch.bfloat16,
     )
 
-    for num_samples, temperature, n_beams, rag, experiment, seed in itertools.product(
+    for num_samples, temperature, rag, experiment, seed in itertools.product(
         [1, 5, 20], [None, 0.1, 0.5], [1, 5, 10], [True, False],
         ['static', 'time_dependent'], range(5)):
 
-        extra_path_info = f'explore_hyper_num-samples={num_samples}_temperature={temperature}_n-beams={n_beams}_rag={rag}'
+        extra_path_info = f'explore_hyper_num-samples={num_samples}_temperature={temperature}_rag={rag}'
         print(extra_path_info, seed, experiment)
         
         if experiment == 'static_long':
@@ -99,7 +99,6 @@ def explore_hyper():
                 'pred_kwargs':{
                     'num_samples': num_samples,
                     'temperature': temperature,
-                    'num_beams': n_beams,
                     'rag': rag,
                     'limit_prediction_length': False,
                 },
