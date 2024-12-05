@@ -99,7 +99,7 @@ def explore_hyper():
                 'pred_kwargs':{
                     'num_samples': num_samples,
                     'temperature': temperature,
-                    'n_beams': n_beams,
+                    'num_beams': n_beams,
                     'rag': rag,
                     'limit_prediction_length': False,
                 },
