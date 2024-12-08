@@ -5,7 +5,8 @@ from utils.train_synthetic import run_synthetic_experiments
 # Our imports
 import torch
 import chronos
-import itertools, argparse, os
+import itertools, functools, argparse, os
+from models.chronos import naive_quantile_int, bonferroni
 
 device = torch.device(
     'cuda' if torch.cuda.is_available() else 
@@ -23,10 +24,12 @@ def main():
     )
 
     for baseline, rag, experiment, seed in itertools.product(
-        ['CHRONOS_CONFORMAL', 'CHRONOS_CONFORMAL_ALL'], [True, False],
+        ['CHRONOS_CONFORMAL', 'CHRONOS_CONFORMAL_ALL', 'CHRONOS_HEURISTIC'], [True, False],
         ['static', 'time_dependent', 'sample_complexity', 'static_long'], range(5)):
 
-        extra_path_info = f'main_rag={rag}'
+        if ('ALL' in baseline or 'HEU' in baseline) and rag: continue
+
+        extra_path_info = f'rag={rag}'
         print(extra_path_info, seed, experiment)
         
         if experiment == 'static_long':
@@ -36,6 +39,15 @@ def main():
         else:
             horizon = None
             save_model = False
+
+        pred_kwargs = {
+            # 'num_samples': num_samples,
+            # 'temperature': temperature,
+            'rag': rag,
+            'limit_prediction_length': False,
+        }
+
+        if 'HEU' in baseline: del pred_kwargs['rag']
 
         run_synthetic_experiments(
             experiment = experiment, 
@@ -49,12 +61,8 @@ def main():
             horizon = horizon,
             chronos_kwargs = {
                 'pipeline': pipeline,
-                'pred_kwargs':{
-                    # 'num_samples': num_samples,
-                    # 'temperature': temperature,
-                    'rag': rag,
-                    'limit_prediction_length': False,
-                },
+                'pred_kwargs': pred_kwargs,
+                'int_func' : functools.partial(bonferroni, other_f = naive_quantile_int)
             },
             extra_path_info = extra_path_info,
             seed = seed
